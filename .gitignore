@@ -1,0 +1,15 @@
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*.tmp
+*.log
+
+VoiceInputApp/bin/
+VoiceInputApp/obj/
+
+# Local app data / secrets are stored outside the repo and should never be committed.
+settings.json
+appsettings.json
+*.secrets.json

@@ -1,0 +1,10 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:local="clr-namespace:VoiceInputApp"
+                    xmlns:models="clr-namespace:VoiceInputApp.Models">
+
+    <local:InverseBooleanConverter x:Key="InverseBooleanConverter"/>
+    <local:StateToVisibilityConverter x:Key="StateToVisibilityConverter"/>
+    <local:HudStateToBrushConverter x:Key="HudStateToBrushConverter"/>
+
+</ResourceDictionary>
