@@ -52,7 +52,7 @@
         </Border>
 
         <UniformGrid Grid.Row="2"
-                     Columns="3"
+                     Columns="4"
                      HorizontalAlignment="Stretch">
             <Border Margin="0,0,12,0"
                     Padding="18"
@@ -106,6 +106,32 @@
                             BorderThickness="0"
                             Cursor="Hand"
                             Click="OpenLlmSettings_Click"/>
+                </StackPanel>
+            </Border>
+
+            <Border Margin="0,0,12,0"
+                    Padding="18"
+                    Background="White"
+                    CornerRadius="20">
+                <StackPanel>
+                    <TextBlock Text="启动设置"
+                               Foreground="#6B7280"
+                               FontSize="13"/>
+                    <TextBlock x:Name="AutoStartStatusText"
+                               Margin="0,10,0,0"
+                               FontSize="22"
+                               FontWeight="Bold"/>
+                    <TextBlock Text="登录 Windows 后自动启动程序。"
+                               Margin="0,8,0,0"
+                               Foreground="#374151"
+                               FontSize="13"
+                               TextWrapping="Wrap"/>
+                    <Button x:Name="AutoStartButton"
+                            Margin="0,18,0,0"
+                            Padding="14,10"
+                            BorderThickness="0"
+                            Cursor="Hand"
+                            Click="ToggleAutoStart_Click"/>
                 </StackPanel>
             </Border>
 

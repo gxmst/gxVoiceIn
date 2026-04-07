@@ -5,6 +5,7 @@ obj/
 *.suo
 *.tmp
 *.log
+.dotnet/
 
 VoiceInputApp/bin/
 VoiceInputApp/obj/

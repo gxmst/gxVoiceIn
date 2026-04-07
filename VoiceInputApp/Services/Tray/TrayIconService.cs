@@ -2,12 +2,14 @@ using System.Drawing;
 using System.Windows.Forms;
 using VoiceInputApp.Models;
 using VoiceInputApp.Services.Settings;
+using VoiceInputApp.Services.Startup;
 
 namespace VoiceInputApp.Services.Tray;
 
 public class TrayIconService : ITrayIconService, IDisposable
 {
     private readonly ISettingsService _settingsService;
+    private readonly IAutoStartService _autoStartService;
     private NotifyIcon? _notifyIcon;
     private readonly Action? _onQuit;
     private readonly Action? _onOpenDashboard;
@@ -15,23 +17,28 @@ public class TrayIconService : ITrayIconService, IDisposable
     private readonly Action? _onLlmSettings;
     private readonly Action<Language>? _onLanguageChanged;
     private readonly Action<bool>? _onLlmEnabledChanged;
+    private readonly Action<bool>? _onAutoStartChanged;
 
     public TrayIconService(
         ISettingsService settingsService,
+        IAutoStartService autoStartService,
         Action? onQuit = null,
         Action? onOpenDashboard = null,
         Action? onAsrSettings = null,
         Action? onLlmSettings = null,
         Action<Language>? onLanguageChanged = null,
-        Action<bool>? onLlmEnabledChanged = null)
+        Action<bool>? onLlmEnabledChanged = null,
+        Action<bool>? onAutoStartChanged = null)
     {
         _settingsService = settingsService;
+        _autoStartService = autoStartService;
         _onQuit = onQuit;
         _onOpenDashboard = onOpenDashboard;
         _onAsrSettings = onAsrSettings;
         _onLlmSettings = onLlmSettings;
         _onLanguageChanged = onLanguageChanged;
         _onLlmEnabledChanged = onLlmEnabledChanged;
+        _onAutoStartChanged = onAutoStartChanged;
     }
 
     public void Initialize()
@@ -102,6 +109,19 @@ public class TrayIconService : ITrayIconService, IDisposable
         var dashboardItem = new ToolStripMenuItem("控制台");
         dashboardItem.Click += (s, e) => _onOpenDashboard?.Invoke();
         menu.Items.Add(dashboardItem);
+
+        var autoStartItem = new ToolStripMenuItem("开机自启")
+        {
+            Checked = _autoStartService.IsEnabled()
+        };
+        autoStartItem.Click += (s, e) =>
+        {
+            var newEnabled = !_autoStartService.IsEnabled();
+            _autoStartService.SetEnabled(newEnabled);
+            _onAutoStartChanged?.Invoke(newEnabled);
+            UpdateMenu();
+        };
+        menu.Items.Add(autoStartItem);
 
         var llmItem = new ToolStripMenuItem("LLM Refinement");
         var enableItem = new ToolStripMenuItem("Enabled")

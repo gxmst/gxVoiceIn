@@ -8,6 +8,7 @@ using VoiceInputApp.Services.LLM;
 using VoiceInputApp.Services.Logging;
 using VoiceInputApp.Services.Notification;
 using VoiceInputApp.Services.Settings;
+using VoiceInputApp.Services.Startup;
 using VoiceInputApp.Services.Tray;
 using VoiceInputApp.Services.Transcription;
 using VoiceInputApp.ViewModels;
@@ -29,6 +30,7 @@ public partial class App : Application
     private VoiceInputOrchestrator? _orchestrator;
     private HudManager? _hudManager;
     private ControlCenterWindow? _controlCenterWindow;
+    private IAutoStartService? _autoStartService;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -43,6 +45,7 @@ public partial class App : Application
         _logger.Info("Initializing services");
         
         _settingsService = new SettingsService();
+        _autoStartService = new AutoStartService();
         _hotkeyMonitor = new HotkeyMonitor();
         _audioCaptureService = new AudioCaptureService();
         _transcriptionService = new VolcengineAsrService(_settingsService);
@@ -52,12 +55,14 @@ public partial class App : Application
 
         _trayIconService = new TrayIconService(
             _settingsService,
+            _autoStartService,
             onQuit: QuitApplication,
             onOpenDashboard: ShowControlCenter,
             onAsrSettings: ShowAsrSettings,
             onLlmSettings: ShowLlmSettings,
             onLanguageChanged: OnLanguageChanged,
-            onLlmEnabledChanged: OnLlmEnabledChanged);
+            onLlmEnabledChanged: OnLlmEnabledChanged,
+            onAutoStartChanged: OnAutoStartChanged);
 
         _trayIconService.Initialize();
         _notificationService = new TrayNotificationService(_trayIconService.GetNotifyIcon());
@@ -108,6 +113,7 @@ public partial class App : Application
             _controlCenterWindow = new ControlCenterWindow(
                 _settingsService!,
                 _logger,
+                _autoStartService!,
                 ShowAsrSettings,
                 ShowLlmSettings,
                 QuitApplication);
@@ -133,6 +139,13 @@ public partial class App : Application
     private void OnLlmEnabledChanged(bool enabled)
     {
         _logger.Info($"LLM enabled: {enabled}");
+        _controlCenterWindow?.RefreshContent();
+    }
+
+    private void OnAutoStartChanged(bool enabled)
+    {
+        _logger.Info($"Auto start enabled: {enabled}");
+        _controlCenterWindow?.RefreshContent();
     }
 
     private void QuitApplication()

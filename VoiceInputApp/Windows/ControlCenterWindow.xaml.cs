@@ -4,6 +4,7 @@ using System.Windows;
 using VoiceInputApp.Models;
 using VoiceInputApp.Services.Logging;
 using VoiceInputApp.Services.Settings;
+using VoiceInputApp.Services.Startup;
 
 namespace VoiceInputApp.Windows;
 
@@ -11,6 +12,7 @@ public partial class ControlCenterWindow : Window
 {
     private readonly ISettingsService _settingsService;
     private readonly ILoggingService _loggingService;
+    private readonly IAutoStartService _autoStartService;
     private readonly Action _openAsrSettings;
     private readonly Action _openLlmSettings;
     private readonly Action _quitApplication;
@@ -18,6 +20,7 @@ public partial class ControlCenterWindow : Window
     public ControlCenterWindow(
         ISettingsService settingsService,
         ILoggingService loggingService,
+        IAutoStartService autoStartService,
         Action openAsrSettings,
         Action openLlmSettings,
         Action quitApplication)
@@ -25,6 +28,7 @@ public partial class ControlCenterWindow : Window
         InitializeComponent();
         _settingsService = settingsService;
         _loggingService = loggingService;
+        _autoStartService = autoStartService;
         _openAsrSettings = openAsrSettings;
         _openLlmSettings = openLlmSettings;
         _quitApplication = quitApplication;
@@ -54,6 +58,16 @@ public partial class ControlCenterWindow : Window
         LlmModelText.Text = string.IsNullOrWhiteSpace(settings.Llm.Model)
             ? "当前未配置模型"
             : $"当前模型：{settings.Llm.Model}";
+
+        var autoStartEnabled = _autoStartService.IsEnabled();
+        AutoStartStatusText.Text = autoStartEnabled ? "已开启" : "已关闭";
+        AutoStartStatusText.Foreground = autoStartEnabled
+            ? System.Windows.Media.Brushes.MediumPurple
+            : System.Windows.Media.Brushes.DimGray;
+        AutoStartButton.Content = autoStartEnabled ? "关闭开机自启" : "开启开机自启";
+        AutoStartButton.Background = autoStartEnabled
+            ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(237, 233, 254))
+            : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(224, 242, 254));
 
         LogPathText.Text = _loggingService.GetLogFilePath();
         RecentLogsBox.Text = _loggingService.GetRecentLogs(120);
@@ -90,6 +104,12 @@ public partial class ControlCenterWindow : Window
 
     private void Refresh_Click(object sender, RoutedEventArgs e)
     {
+        RefreshContent();
+    }
+
+    private void ToggleAutoStart_Click(object sender, RoutedEventArgs e)
+    {
+        _autoStartService.SetEnabled(!_autoStartService.IsEnabled());
         RefreshContent();
     }
 
