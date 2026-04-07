@@ -61,6 +61,7 @@ public class VolcengineAsrService : ITranscriptionService
     public async Task StartStreamingRecognitionAsync(
         Language language,
         string sessionId,
+        IReadOnlyList<string>? contextTexts,
         Action<TranscriptionResult> onResult,
         CancellationToken cancellationToken)
     {
@@ -103,7 +104,7 @@ public class VolcengineAsrService : ITranscriptionService
             await _webSocket.ConnectAsync(new Uri(WsUrl), cancellationToken);
             _logger.Info($"[{sessionId}] WebSocket connected. State: {_webSocket.State}");
 
-            await SendFullClientRequestAsync(language, cancellationToken);
+            await SendFullClientRequestAsync(language, contextTexts, cancellationToken);
             _receiveTask = ReceiveResultsAsync(cancellationToken);
         }
         catch (Exception ex)
@@ -222,8 +223,9 @@ public class VolcengineAsrService : ITranscriptionService
         return finalResult;
     }
 
-    private async Task SendFullClientRequestAsync(Language language, CancellationToken cancellationToken)
+    private async Task SendFullClientRequestAsync(Language language, IReadOnlyList<string>? contextTexts, CancellationToken cancellationToken)
     {
+        var settings = _settingsService.Current.Asr;
         var request = new
         {
             user = new
@@ -236,14 +238,37 @@ public class VolcengineAsrService : ITranscriptionService
                 codec = "raw",
                 rate = 16000,
                 bits = 16,
-                channel = 1
+                channel = 1,
+                language = language.ToCode()
             },
             request = new
             {
                 reqid = Guid.NewGuid().ToString(),
                 sequence = _sequenceNumber++,
-                nbest = 1
-            }
+                nbest = 1,
+                model_name = string.IsNullOrWhiteSpace(settings.ModelName) ? "bigmodel" : settings.ModelName,
+                enable_itn = settings.EnableItn,
+                enable_punc = settings.EnablePunc,
+                enable_ddc = settings.EnableDdc,
+                end_window_size = Math.Clamp(settings.EndWindowSize, 200, 2000)
+            },
+            corpus = string.IsNullOrWhiteSpace(settings.BoostingTableId)
+                ? null
+                : new
+                {
+                    boosting_table_id = settings.BoostingTableId
+                },
+            context = contextTexts is { Count: > 0 }
+                ? new
+                {
+                    context_type = "dialog",
+                    entries = contextTexts
+                        .Where(static text => !string.IsNullOrWhiteSpace(text))
+                        .TakeLast(3)
+                        .Select(static text => new { text })
+                        .ToArray()
+                }
+                : null
         };
 
         var jsonPayload = JsonSerializer.Serialize(request);
@@ -415,10 +440,6 @@ public class VolcengineAsrService : ITranscriptionService
             }
             _onResult?.Invoke(transcriptionResult);
 
-            if (isFinal)
-            {
-                _completionSource?.TrySetResult(transcriptionResult);
-            }
         }
         catch (JsonException ex)
         {

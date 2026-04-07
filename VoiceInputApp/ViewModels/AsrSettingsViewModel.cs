@@ -15,6 +15,8 @@ public class AsrSettingsViewModel : INotifyPropertyChanged
     private string _appId = string.Empty;
     private string _token = string.Empty;
     private string _resourceId = string.Empty;
+    private string _modelName = string.Empty;
+    private string _boostingTableId = string.Empty;
     private string _statusMessage = string.Empty;
     private bool _isTesting;
     private int _selectedMicrophoneIndex;
@@ -53,6 +55,32 @@ public class AsrSettingsViewModel : INotifyPropertyChanged
             if (_resourceId != value)
             {
                 _resourceId = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public string ModelName
+    {
+        get => _modelName;
+        set
+        {
+            if (_modelName != value)
+            {
+                _modelName = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public string BoostingTableId
+    {
+        get => _boostingTableId;
+        set
+        {
+            if (_boostingTableId != value)
+            {
+                _boostingTableId = value;
                 OnPropertyChanged();
             }
         }
@@ -115,6 +143,8 @@ public class AsrSettingsViewModel : INotifyPropertyChanged
         _appId = settings.Asr.AppId;
         _token = settings.Asr.Token;
         _resourceId = settings.Asr.ResourceId;
+        _modelName = settings.Asr.ModelName;
+        _boostingTableId = settings.Asr.BoostingTableId;
 
         LoadMicrophones();
         _selectedMicrophoneIndex = settings.MicrophoneDeviceIndex;
@@ -146,6 +176,8 @@ public class AsrSettingsViewModel : INotifyPropertyChanged
         _settingsService.Current.Asr.AppId = _appId;
         _settingsService.Current.Asr.Token = _token;
         _settingsService.Current.Asr.ResourceId = _resourceId;
+        _settingsService.Current.Asr.ModelName = string.IsNullOrWhiteSpace(_modelName) ? "bigmodel" : _modelName.Trim();
+        _settingsService.Current.Asr.BoostingTableId = _boostingTableId.Trim();
         _settingsService.Current.MicrophoneDeviceIndex = _selectedMicrophoneIndex;
         _settingsService.Save(_settingsService.Current);
         

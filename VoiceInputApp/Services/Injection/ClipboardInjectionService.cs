@@ -8,6 +8,10 @@ public class ClipboardInjectionService : ITextInjectionService
     private readonly ILoggingService _logger = LoggingService.Instance;
     private readonly IClipboardService _clipboardService;
     private readonly IInputSimulationService _inputSimulationService;
+    private readonly object _clipboardStateLock = new();
+    private string? _preservedClipboardText;
+    private string? _lastInjectedClipboardText;
+    private CancellationTokenSource? _restoreCts;
 
     public ClipboardInjectionService()
         : this(new ClipboardService(), new SendInputSimulationService())
@@ -43,7 +47,21 @@ public class ClipboardInjectionService : ITextInjectionService
         string? originalClipboard;
         try
         {
-            originalClipboard = await RetryClipboardAsync("backup", ct => _clipboardService.GetTextAsync(ct));
+            var currentClipboardText = await RetryClipboardAsync("backup", ct => _clipboardService.GetTextAsync(ct));
+            lock (_clipboardStateLock)
+            {
+                if (!string.IsNullOrWhiteSpace(_lastInjectedClipboardText)
+                    && string.Equals(currentClipboardText, _lastInjectedClipboardText, StringComparison.Ordinal))
+                {
+                    originalClipboard = _preservedClipboardText;
+                }
+                else
+                {
+                    _preservedClipboardText = currentClipboardText;
+                    originalClipboard = currentClipboardText;
+                }
+            }
+
             _logger.Debug($"Clipboard backed up, length: {originalClipboard?.Length ?? 0}");
         }
         catch (Exception ex)
@@ -58,7 +76,7 @@ public class ClipboardInjectionService : ITextInjectionService
             await RetryClipboardAsync("set", ct => _clipboardService.SetTextAsync(text, ct));
             _logger.Debug("Clipboard text set successfully");
 
-            await Task.Delay(100);
+            await Task.Delay(80);
 
             var foregroundWindowAfterClipboard = GetForegroundWindowInfo();
             _logger.Debug($"Foreground window AFTER clipboard set: {foregroundWindowAfterClipboard}");
@@ -72,7 +90,7 @@ public class ClipboardInjectionService : ITextInjectionService
             await _inputSimulationService.SendPasteShortcutAsync();
             _logger.Debug("Ctrl+V sent");
 
-            await Task.Delay(200);
+            await Task.Delay(120);
 
             var foregroundWindowAfterPaste = GetForegroundWindowInfo();
             _logger.Debug($"Foreground window AFTER Ctrl+V: {foregroundWindowAfterPaste}");
@@ -100,7 +118,7 @@ public class ClipboardInjectionService : ITextInjectionService
                 _logger.Warning($"Failed to release modifier keys: {ex.Message}");
             }
 
-            _ = RestoreClipboardAsync(text, originalClipboard);
+            ScheduleClipboardRestore(text, originalClipboard);
         }
     }
 
@@ -141,15 +159,51 @@ public class ClipboardInjectionService : ITextInjectionService
             });
     }
 
-    private async Task RestoreClipboardAsync(string injectedText, string? originalClipboard)
+    private void ScheduleClipboardRestore(string injectedText, string? originalClipboard)
+    {
+        CancellationToken token;
+        lock (_clipboardStateLock)
+        {
+            _restoreCts?.Cancel();
+            _restoreCts?.Dispose();
+            _restoreCts = new CancellationTokenSource();
+            _lastInjectedClipboardText = injectedText;
+            token = _restoreCts.Token;
+        }
+
+        _ = RestoreClipboardAsync(injectedText, originalClipboard, token);
+    }
+
+    private async Task RestoreClipboardAsync(string injectedText, string? originalClipboard, CancellationToken cancellationToken)
     {
         try
         {
-            await Task.Delay(1500);
+            await Task.Delay(250, cancellationToken);
             var restored = await _clipboardService.RestoreTextIfUnchangedAsync(injectedText, originalClipboard);
             _logger.Info(restored
                 ? "Original clipboard restored"
-                : "Clipboard restore skipped because clipboard changed");
+                : "Clipboard restore skipped because clipboard changed or paste target replaced clipboard");
+
+            lock (_clipboardStateLock)
+            {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    return;
+                }
+
+                if (string.Equals(_lastInjectedClipboardText, injectedText, StringComparison.Ordinal))
+                {
+                    _lastInjectedClipboardText = null;
+                    if (restored)
+                    {
+                        _preservedClipboardText = null;
+                    }
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.Debug("Clipboard restore canceled because a newer injection replaced it");
         }
         catch (Exception ex)
         {

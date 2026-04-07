@@ -13,6 +13,8 @@ namespace VoiceInputApp.Services;
 
 public class VoiceInputOrchestrator : IDisposable
 {
+    private const int PostReleaseAudioTailMs = 200;
+
     private enum VoiceInputState
     {
         Idle,
@@ -32,6 +34,7 @@ public class VoiceInputOrchestrator : IDisposable
     private readonly ILoggingService _logger = LoggingService.Instance;
     private readonly HudManager _hudManager;
     private readonly object _stateLock = new();
+    private readonly Queue<string> _recentCommittedTexts = new();
 
     private CancellationTokenSource? _recognitionCts;
     private Stopwatch? _sessionStopwatch;
@@ -99,7 +102,7 @@ public class VoiceInputOrchestrator : IDisposable
         string? sessionId;
         lock (_stateLock)
         {
-            if (_state != VoiceInputState.Recording || string.IsNullOrWhiteSpace(_sessionId))
+            if ((_state != VoiceInputState.Recording && _state != VoiceInputState.Stopping) || string.IsNullOrWhiteSpace(_sessionId))
             {
                 return;
             }
@@ -148,6 +151,7 @@ public class VoiceInputOrchestrator : IDisposable
             await _transcriptionService.StartStreamingRecognitionAsync(
                 _settingsService.Current.Language,
                 sessionId,
+                GetContextTexts(),
                 OnTranscriptionResult,
                 _recognitionCts.Token);
 
@@ -197,6 +201,11 @@ public class VoiceInputOrchestrator : IDisposable
         try
         {
             Log(sessionId!, "Stopping recording");
+            if (PostReleaseAudioTailMs > 0)
+            {
+                Log(sessionId!, $"Keeping capture alive for tail audio: {PostReleaseAudioTailMs}ms");
+                await Task.Delay(PostReleaseAudioTailMs);
+            }
             _audioCaptureService.StopCapture();
 
             var stopResult = await _transcriptionService.StopRecognitionAsync(_recognitionCts?.Token ?? CancellationToken.None);
@@ -315,6 +324,7 @@ public class VoiceInputOrchestrator : IDisposable
         Log(sessionId, $"Injection finished in {GetElapsedMilliseconds()}ms");
         if (success)
         {
+            RememberCommittedText(finalText);
             hud?.UpdateState(HudState.Success, finalText);
             HideHudAfterDelay(hud, 1000);
         }
@@ -425,6 +435,31 @@ public class VoiceInputOrchestrator : IDisposable
         lock (_stateLock)
         {
             return _sessionStopwatch?.ElapsedMilliseconds ?? 0;
+        }
+    }
+
+    private IReadOnlyList<string> GetContextTexts()
+    {
+        lock (_stateLock)
+        {
+            return _recentCommittedTexts.ToArray();
+        }
+    }
+
+    private void RememberCommittedText(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return;
+        }
+
+        lock (_stateLock)
+        {
+            _recentCommittedTexts.Enqueue(text);
+            while (_recentCommittedTexts.Count > 3)
+            {
+                _recentCommittedTexts.Dequeue();
+            }
         }
     }
 

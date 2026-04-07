@@ -3,11 +3,13 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="ASR 设置 - 大模型流式语音识别"
         Width="420"
-        Height="400"
+        Height="500"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize">
     <Grid Margin="20">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -43,9 +45,23 @@
                        Foreground="Gray" FontSize="10" Margin="0,2,0,0" TextWrapping="Wrap"/>
         </StackPanel>
 
-        <TextBlock Grid.Row="4" Text="{Binding StatusMessage}" Foreground="Gray" Margin="0,0,0,10"/>
+        <StackPanel Grid.Row="4" Margin="0,0,0,10">
+            <TextBlock Text="Model Name:" Margin="0,0,0,5"/>
+            <TextBox Text="{Binding ModelName, UpdateSourceTrigger=PropertyChanged}" Padding="5"/>
+            <TextBlock Text="默认推荐 bigmodel，偏输入法体验。" 
+                       Foreground="Gray" FontSize="10" Margin="0,2,0,0" TextWrapping="Wrap"/>
+        </StackPanel>
 
-        <StackPanel Grid.Row="6" Orientation="Horizontal" HorizontalAlignment="Right">
+        <StackPanel Grid.Row="5" Margin="0,0,0,10">
+            <TextBlock Text="热词表 ID（可选）:" Margin="0,0,0,5"/>
+            <TextBox Text="{Binding BoostingTableId, UpdateSourceTrigger=PropertyChanged}" Padding="5"/>
+            <TextBlock Text="如果你在火山侧配置了热词表，把 ID 填这里，专业词和术语会更稳。" 
+                       Foreground="Gray" FontSize="10" Margin="0,2,0,0" TextWrapping="Wrap"/>
+        </StackPanel>
+
+        <TextBlock Grid.Row="6" Text="{Binding StatusMessage}" Foreground="Gray" Margin="0,0,0,10"/>
+
+        <StackPanel Grid.Row="8" Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Content="打开日志" Command="{Binding OpenLogCommand}" Width="70" Margin="0,0,10,0" Padding="5"/>
             <Button Content="Test" Command="{Binding TestCommand}" Width="70" Margin="0,0,10,0" Padding="5"
                     IsEnabled="{Binding IsTesting, Converter={StaticResource InverseBooleanConverter}}"/>

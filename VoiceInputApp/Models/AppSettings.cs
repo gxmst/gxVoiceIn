@@ -21,4 +21,10 @@ public class AsrSettings
     public string AppId { get; set; } = string.Empty;
     public string Token { get; set; } = string.Empty;
     public string ResourceId { get; set; } = "volc.bigasr.sauc.duration";
+    public string ModelName { get; set; } = "bigmodel";
+    public bool EnableItn { get; set; } = true;
+    public bool EnablePunc { get; set; } = true;
+    public bool EnableDdc { get; set; } = true;
+    public int EndWindowSize { get; set; } = 500;
+    public string BoostingTableId { get; set; } = string.Empty;
 }

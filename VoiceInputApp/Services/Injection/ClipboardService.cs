@@ -1,4 +1,7 @@
-using System.Windows;
+using WpfClipboard = System.Windows.Clipboard;
+using WinRtClipboard = global::Windows.ApplicationModel.DataTransfer.Clipboard;
+using WinRtClipboardContentOptions = global::Windows.ApplicationModel.DataTransfer.ClipboardContentOptions;
+using WinRtDataPackage = global::Windows.ApplicationModel.DataTransfer.DataPackage;
 
 namespace VoiceInputApp.Services.Injection;
 
@@ -6,24 +9,24 @@ public class ClipboardService : IClipboardService
 {
     public Task<string?> GetTextAsync(CancellationToken cancellationToken = default)
     {
-        return RunStaAsync(() => Clipboard.ContainsText() ? Clipboard.GetText() : null, cancellationToken);
+        return RunStaAsync(() => WpfClipboard.ContainsText() ? WpfClipboard.GetText() : null, cancellationToken);
     }
 
     public Task SetTextAsync(string text, CancellationToken cancellationToken = default)
     {
-        return RunStaAsync(() => Clipboard.SetText(text), cancellationToken);
+        return RunStaAsync(() => SetTextInternal(text), cancellationToken);
     }
 
     public Task ClearAsync(CancellationToken cancellationToken = default)
     {
-        return RunStaAsync(Clipboard.Clear, cancellationToken);
+        return RunStaAsync(WpfClipboard.Clear, cancellationToken);
     }
 
     public Task<bool> RestoreTextIfUnchangedAsync(string expectedCurrentText, string? restoreText, CancellationToken cancellationToken = default)
     {
         return RunStaAsync(() =>
         {
-            var currentText = Clipboard.ContainsText() ? Clipboard.GetText() : null;
+            var currentText = WpfClipboard.ContainsText() ? WpfClipboard.GetText() : null;
             if (!string.Equals(currentText, expectedCurrentText, StringComparison.Ordinal))
             {
                 return false;
@@ -31,11 +34,11 @@ public class ClipboardService : IClipboardService
 
             if (restoreText is null)
             {
-                Clipboard.Clear();
+                WpfClipboard.Clear();
             }
             else
             {
-                Clipboard.SetText(restoreText);
+                SetTextInternal(restoreText);
             }
 
             return true;
@@ -88,4 +91,28 @@ public class ClipboardService : IClipboardService
 
         return tcs.Task;
     }
+
+    private static void SetTextInternal(string text)
+    {
+        try
+        {
+            var package = new WinRtDataPackage();
+            package.SetText(text);
+
+            var options = new WinRtClipboardContentOptions
+            {
+                IsAllowedInHistory = false
+            };
+
+            WinRtClipboard.SetContentWithOptions(package, options);
+            WinRtClipboard.Flush();
+            return;
+        }
+        catch
+        {
+        }
+
+        WpfClipboard.SetText(text);
+    }
+
 }

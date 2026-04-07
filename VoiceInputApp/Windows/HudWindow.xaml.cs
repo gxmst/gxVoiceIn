@@ -16,6 +16,8 @@ public partial class HudWindow : Window
         InitializeComponent();
         _viewModel = viewModel;
         DataContext = _viewModel;
+        ShowActivated = false;
+        Focusable = false;
 
         Loaded += OnLoaded;
     }

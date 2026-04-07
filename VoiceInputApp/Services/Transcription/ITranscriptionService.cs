@@ -7,6 +7,7 @@ public interface ITranscriptionService
     Task StartStreamingRecognitionAsync(
         Language language,
         string sessionId,
+        IReadOnlyList<string>? contextTexts,
         Action<TranscriptionResult> onResult,
         CancellationToken cancellationToken);
 
