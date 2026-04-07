@@ -45,7 +45,34 @@ public class AudioCaptureService : IAudioCaptureService
             throw new InvalidOperationException("Cannot change device while capturing");
         }
         _deviceNumber = deviceNumber;
-        _logger.Info($"Microphone device set to: {deviceNumber}");
+        _logger.Info($"Microphone device set by index to: {deviceNumber}");
+    }
+
+    public void SetDeviceByName(string deviceName)
+    {
+        if (_isCapturing)
+        {
+            throw new InvalidOperationException("Cannot change device while capturing");
+        }
+
+        if (string.IsNullOrWhiteSpace(deviceName))
+        {
+            _deviceNumber = -1;
+            return;
+        }
+
+        var devices = GetAvailableDevices();
+        var match = devices.FirstOrDefault(d => string.Equals(d.Name, deviceName, StringComparison.OrdinalIgnoreCase));
+        if (match.Name != null)
+        {
+            _deviceNumber = match.Index;
+            _logger.Info($"Microphone device set by name to: '{deviceName}' (index {match.Index})");
+        }
+        else
+        {
+            _deviceNumber = -1;
+            _logger.Warning($"Microphone device '{deviceName}' not found. Will fallback to default in next session.");
+        }
     }
 
     public void StartCapture()

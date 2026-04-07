@@ -26,6 +26,13 @@
                               DisplayMemberPath="Name"
                               Padding="5"/>
                 </StackPanel>
+                
+                <StackPanel Margin="0,0,0,8">
+                    <TextBlock Text="触发键 (十进制数字):" Margin="0,0,0,4"/>
+                    <TextBox Text="{Binding TriggerKey, UpdateSourceTrigger=PropertyChanged}" Padding="5"/>
+                    <TextBlock Text="常用键: RShift (161), CapsLock (20), LAlt (164)"
+                               Foreground="Gray" FontSize="10" Margin="0,2,0,0" TextWrapping="Wrap"/>
+                </StackPanel>
 
                 <StackPanel Margin="0,0,0,8">
                     <TextBlock Text="AppID:" Margin="0,0,0,4"/>

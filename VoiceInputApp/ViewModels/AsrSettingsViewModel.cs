@@ -20,6 +20,21 @@ public class AsrSettingsViewModel : INotifyPropertyChanged
     private string _statusMessage = string.Empty;
     private bool _isTesting;
     private int _selectedMicrophoneIndex;
+    private int _triggerKey;
+    private string _microphoneName = string.Empty;
+
+    public int TriggerKey
+    {
+        get => _triggerKey;
+        set
+        {
+            if (_triggerKey != value)
+            {
+                _triggerKey = value;
+                OnPropertyChanged();
+            }
+        }
+    }
 
     public string AppId
     {
@@ -148,6 +163,18 @@ public class AsrSettingsViewModel : INotifyPropertyChanged
 
         LoadMicrophones();
         _selectedMicrophoneIndex = settings.MicrophoneDeviceIndex;
+        _microphoneName = settings.MicrophoneDeviceName;
+        _triggerKey = settings.TriggerKey;
+
+        // Ensure current microphone is selected by name if available
+        if (!string.IsNullOrEmpty(_microphoneName))
+        {
+            var match = Microphones.FirstOrDefault(m => string.Equals(m.Name, _microphoneName, StringComparison.OrdinalIgnoreCase));
+            if (match != null)
+            {
+                _selectedMicrophoneIndex = match.Index;
+            }
+        }
 
         SaveCommand = new RelayCommand(Save);
         CancelCommand = new RelayCommand(() => CloseRequested?.Invoke());
@@ -179,9 +206,17 @@ public class AsrSettingsViewModel : INotifyPropertyChanged
         _settingsService.Current.Asr.ModelName = string.IsNullOrWhiteSpace(_modelName) ? "bigmodel" : _modelName.Trim();
         _settingsService.Current.Asr.BoostingTableId = _boostingTableId.Trim();
         _settingsService.Current.MicrophoneDeviceIndex = _selectedMicrophoneIndex;
+        _settingsService.Current.TriggerKey = _triggerKey;
+
+        var selectedMic = Microphones.FirstOrDefault(m => m.Index == _selectedMicrophoneIndex);
+        if (selectedMic != null)
+        {
+            _settingsService.Current.MicrophoneDeviceName = selectedMic.Name;
+        }
+
         _settingsService.Save(_settingsService.Current);
         
-        _logger.Info($"Settings saved. AppId: {_appId}, ResourceId: {_resourceId}, Microphone: {_selectedMicrophoneIndex}");
+        _logger.Info($"Settings saved. AppId: {_appId}, ResourceId: {_resourceId}, Microphone: {_selectedMicrophoneIndex}, TriggerKey: {_triggerKey:X2}");
         CloseRequested?.Invoke();
     }
 

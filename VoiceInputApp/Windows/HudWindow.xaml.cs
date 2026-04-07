@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Media.Animation;
+using System.Windows.Media;
 using System.Windows.Interop;
 using VoiceInputApp.ViewModels;
 
@@ -20,6 +21,32 @@ public partial class HudWindow : Window
         Focusable = false;
 
         Loaded += OnLoaded;
+        _viewModel.PropertyChanged += OnViewModelPropertyChanged;
+    }
+
+    private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(HudViewModel.DisplayText))
+        {
+            Dispatcher.InvokeAsync(PlayTextUpdateAnimation);
+        }
+    }
+
+    private void PlayTextUpdateAnimation()
+    {
+        var fade = new DoubleAnimation(0.7, 1.0, TimeSpan.FromMilliseconds(150))
+        {
+            EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+        };
+        DisplayTextBlock.BeginAnimation(OpacityProperty, fade);
+
+        var nudge = new DoubleAnimation(2, 0, TimeSpan.FromMilliseconds(150))
+        {
+            EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+        };
+        var transform = new TranslateTransform();
+        DisplayTextBlock.RenderTransform = transform;
+        transform.BeginAnimation(TranslateTransform.XProperty, nudge);
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)

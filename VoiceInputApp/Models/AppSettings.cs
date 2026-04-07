@@ -5,6 +5,8 @@ public class AppSettings
     public Language Language { get; set; } = Language.ZhCN;
     public bool LlmEnabled { get; set; } = false;
     public int MicrophoneDeviceIndex { get; set; } = -1;
+    public string MicrophoneDeviceName { get; set; } = string.Empty;
+    public int TriggerKey { get; set; } = 0xA1;
     public LlmSettings Llm { get; set; } = new();
     public AsrSettings Asr { get; set; } = new();
 }

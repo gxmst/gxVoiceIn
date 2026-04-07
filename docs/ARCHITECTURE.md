@@ -539,6 +539,16 @@ ViewModels/
 
 ## 主流程时序
 
+- **HotkeyMonitor (Low Level Hook)**:
+    - 通过 `WH_KEYBOARD_LL` 监听全局按键。
+    - 现已支持**动态配置触发键** (从 `AppSettings` 加载)。
+    - 针对 `RShift` 的释放丢失问题，由 `Orchestrator` 通过自动停止逻辑进行补偿。
+    - **改进**: 现在通过 `UpdateTriggerKey` 方法支持在运行时更新热键而无需重启。
+- **AudioCaptureService (NAudio)**:
+    - 封装 `WaveInEvent`。
+    - 实时计算 RMS 分贝值。
+    - **改进**: 引入了**设备名称持久化**。在启动录音前按名称搜索匹配的设备 Index，提高因设备插拔导致序号变动时的鲁棒性。若找不到则安全回退到默认设备 (Index 0)。
+
 ```
 用户                    HotkeyMonitor       Orchestrator        AudioCapture        ASR Service         LLM Service         TextInjection        HUD
  │                           │                   │                   │                   │                   │                   │               │

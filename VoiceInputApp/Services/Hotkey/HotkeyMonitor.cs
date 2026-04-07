@@ -11,25 +11,30 @@ public class HotkeyMonitor : IHotkeyMonitor
     private const int WM_SYSKEYDOWN = 0x0104;
     private const int WM_SYSKEYUP = 0x0105;
 
-    private const int VK_RSHIFT = 0xA1;
-    private const int VK_LSHIFT = 0xA0;
-
     private readonly ILoggingService _logger = LoggingService.Instance;
+    private int _triggerKey;
 
     private IntPtr _hookId = IntPtr.Zero;
     private readonly HookProc _hookProc;
     private bool _isRunning;
-    private bool _rightShiftPressed;
+    private bool _triggerKeyPressed;
 
     public event EventHandler<HotkeyEventArgs>? KeyPressed;
     public event EventHandler<HotkeyEventArgs>? KeyReleased;
 
     private delegate IntPtr HookProc(int nCode, IntPtr wParam, IntPtr lParam);
 
-    public HotkeyMonitor()
+    public HotkeyMonitor(int triggerKey)
     {
+        _triggerKey = triggerKey;
         _hookProc = HookCallback;
         DisableAccessibilityFeatures();
+    }
+
+    public void UpdateTriggerKey(int key)
+    {
+        _triggerKey = key;
+        _logger.Info($"Hotkey trigger key updated to: {key:X2}");
     }
 
     private void DisableAccessibilityFeatures()
@@ -84,7 +89,7 @@ public class HotkeyMonitor : IHotkeyMonitor
 
         _hookId = SetWindowsHookEx(WH_KEYBOARD_LL, _hookProc, GetModuleHandle(null), 0);
         _isRunning = true;
-        _rightShiftPressed = false;
+        _triggerKeyPressed = false;
     }
 
     public void Stop()
@@ -97,7 +102,7 @@ public class HotkeyMonitor : IHotkeyMonitor
             _hookId = IntPtr.Zero;
         }
         _isRunning = false;
-        _rightShiftPressed = false;
+        _triggerKeyPressed = false;
     }
 
     private IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
@@ -108,17 +113,17 @@ public class HotkeyMonitor : IHotkeyMonitor
             var isKeyDown = wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN;
             var isKeyUp = wParam == WM_KEYUP || wParam == WM_SYSKEYUP;
 
-            if (vkCode == VK_RSHIFT)
+            if (vkCode == _triggerKey)
             {
-                if (isKeyDown && !_rightShiftPressed)
+                if (isKeyDown && !_triggerKeyPressed)
                 {
-                    _rightShiftPressed = true;
-                    KeyPressed?.Invoke(this, new HotkeyEventArgs { IsRightShift = true, IsKeyDown = true });
+                    _triggerKeyPressed = true;
+                    KeyPressed?.Invoke(this, new HotkeyEventArgs { IsTriggerKey = true, IsKeyDown = true });
                 }
-                else if (isKeyUp && _rightShiftPressed)
+                else if (isKeyUp && _triggerKeyPressed)
                 {
-                    _rightShiftPressed = false;
-                    KeyReleased?.Invoke(this, new HotkeyEventArgs { IsRightShift = true, IsKeyDown = false });
+                    _triggerKeyPressed = false;
+                    KeyReleased?.Invoke(this, new HotkeyEventArgs { IsTriggerKey = true, IsKeyDown = false });
                 }
             }
         }

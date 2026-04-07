@@ -46,7 +46,7 @@ public partial class App : Application
         
         _settingsService = new SettingsService();
         _autoStartService = new AutoStartService();
-        _hotkeyMonitor = new HotkeyMonitor();
+        _hotkeyMonitor = new HotkeyMonitor(_settingsService.Current.TriggerKey);
         _audioCaptureService = new AudioCaptureService();
         _transcriptionService = new VolcengineAsrService(_settingsService);
         _textInjectionService = new ClipboardInjectionService();
@@ -96,6 +96,7 @@ public partial class App : Application
         window.ShowDialog();
         _trayIconService?.UpdateMenu();
         _controlCenterWindow?.RefreshContent();
+        _hotkeyMonitor?.UpdateTriggerKey(_settingsService!.Current.TriggerKey);
     }
 
     private void ShowLlmSettings()

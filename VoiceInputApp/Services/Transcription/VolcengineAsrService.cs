@@ -403,10 +403,11 @@ public class VolcengineAsrService : ITranscriptionService
             var response = JsonSerializer.Deserialize<VolcengineResponse>(json, JsonOptions);
             if (response?.Code != null && response.Code != 1000)
             {
+                var userMessage = MapErrorCodeToMessage(response.Code.Value, response.Message ?? "Unknown error");
                 var errorResult = new TranscriptionResult
                 {
                     IsError = true,
-                    ErrorMessage = $"ASR 错误 ({response.Code}): {response.Message}"
+                    ErrorMessage = userMessage
                 };
                 _logger.Error($"[{_currentSessionId}] ASR error code: {response.Code}, message: {response.Message}");
                 _completionSource?.TrySetResult(errorResult);
@@ -475,15 +476,30 @@ public class VolcengineAsrService : ITranscriptionService
             ? Encoding.UTF8.GetString(buffer, 12, errorMsgSize)
             : "Unknown error";
 
+        var userMessage = MapErrorCodeToMessage(errorCode, errorMsg);
         var errorResult = new TranscriptionResult
         {
             IsError = true,
-            ErrorMessage = $"ASR 错误 ({errorCode}): {errorMsg}"
+            ErrorMessage = userMessage
         };
 
         _logger.Error($"[{_currentSessionId}] ASR error response: code={errorCode}, message={errorMsg}");
         _completionSource?.TrySetResult(errorResult);
         _onResult?.Invoke(errorResult);
+    }
+
+    private string MapErrorCodeToMessage(int code, string originalMsg)
+    {
+        return code switch
+        {
+            1001 => "ASR 认证失败，请检查 Token 是否有效",
+            1002 => "ASR 请求频率过高，请稍后再试",
+            1003 => "ASR 服务暂时不可用，请稍后重试",
+            3001 => "音频质量过差，无法识别",
+            3002 => "识别超时，请检查网络连接",
+            4001 => "AppID 不正确，请检查配置",
+            _ => $"ASR 错误 ({code}): {originalMsg}"
+        };
     }
 
     private async Task<TranscriptionResult?> WaitForCompletionAsync(

@@ -197,11 +197,18 @@ public class VoiceInputOrchestrator : IDisposable
         {
             _recognitionCts = new CancellationTokenSource();
 
+            var deviceName = _settingsService.Current.MicrophoneDeviceName;
             var deviceIndex = _settingsService.Current.MicrophoneDeviceIndex;
-            if (deviceIndex >= 0)
+
+            if (!string.IsNullOrWhiteSpace(deviceName))
+            {
+                _audioCaptureService.SetDeviceByName(deviceName);
+                Log(sessionId, $"Using microphone device by name: '{deviceName}'");
+            }
+            else if (deviceIndex >= 0)
             {
                 _audioCaptureService.SetDevice(deviceIndex);
-                Log(sessionId, $"Using microphone device: {deviceIndex}");
+                Log(sessionId, $"Using microphone device by index: {deviceIndex}");
             }
 
             _currentHud = _hudManager.CreateHud();
