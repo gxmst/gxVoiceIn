@@ -29,8 +29,29 @@ public partial class HudWindow : Window
         if (e.PropertyName == nameof(HudViewModel.DisplayText))
         {
             Dispatcher.InvokeAsync(PlayTextUpdateAnimation);
+            Dispatcher.InvokeAsync(AnimateWidth);
         }
     }
+
+    private void AnimateWidth()
+    {
+        // Transition width smoothly
+        HudShell.UpdateLayout();
+        double targetWidth = HudShell.ActualWidth;
+        
+        // Temporarily reset to old width to animate from it
+        double oldWidth = _lastWidth > 0 ? _lastWidth : targetWidth;
+        
+        var widthAnim = new DoubleAnimation(oldWidth, targetWidth, TimeSpan.FromMilliseconds(200))
+        {
+            EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseInOut }
+        };
+        
+        HudShell.BeginAnimation(WidthProperty, widthAnim);
+        _lastWidth = targetWidth;
+    }
+
+    private double _lastWidth;
 
     private void PlayTextUpdateAnimation()
     {
@@ -66,8 +87,22 @@ public partial class HudWindow : Window
         extendedStyle |= WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW;
         SetWindowLong(hwnd, GWL_EXSTYLE, extendedStyle);
 
+        // Enable Windows 11 Acrylic/Mica Backdrop
+        EnableBlur(hwnd);
+
         ShowInTaskbar = false;
         Topmost = true;
+    }
+
+    private void EnableBlur(IntPtr hwnd)
+    {
+        // Set Dark Mode Attribute
+        int darkMode = 1;
+        DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, ref darkMode, sizeof(int));
+
+        // Set Backdrop Type (2 = Mica, 3 = Acrylic, 4 = Tabbed/Mica Alt)
+        int backdropType = 3; 
+        DwmSetWindowAttribute(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, ref backdropType, sizeof(int));
     }
 
     public void ShowHud()
@@ -131,4 +166,10 @@ public partial class HudWindow : Window
 
     [DllImport("user32.dll")]
     private static extern int SetWindowLong(IntPtr hwnd, int index, int newStyle);
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
+
+    private const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
+    private const int DWMWA_SYSTEMBACKDROP_TYPE = 38;
 }

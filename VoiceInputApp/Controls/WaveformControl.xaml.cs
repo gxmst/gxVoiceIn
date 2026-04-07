@@ -13,9 +13,9 @@ public partial class WaveformControl : UserControl
         DependencyProperty.Register(nameof(Levels), typeof(float[]), typeof(WaveformControl),
             new PropertyMetadata(new float[] { 0, 0, 0, 0, 0 }, OnLevelsChanged));
 
-    private readonly Rectangle[] _bars = new Rectangle[5];
-    private readonly float[] _weights = { 0.5f, 0.8f, 1.0f, 0.75f, 0.55f };
+    private readonly float[] _weights = { 0.4f, 0.9f, 1.2f, 0.9f, 0.4f };
     private readonly float[] _smoothedLevels = new float[5];
+    private const double WidthPerPoint = 10;
 
     public float[] Levels
     {
@@ -26,28 +26,6 @@ public partial class WaveformControl : UserControl
     public WaveformControl()
     {
         InitializeComponent();
-        CreateBars();
-    }
-
-    private void CreateBars()
-    {
-        for (var i = 0; i < 5; i++)
-        {
-            _bars[i] = new Rectangle
-            {
-                Fill = new SolidColorBrush(Color.FromRgb(255, 255, 255)),
-                Width = 4,
-                RadiusX = 2,
-                RadiusY = 2,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            Container.Children.Add(_bars[i]);
-
-            if (i < 4)
-            {
-                Container.Children.Add(new Border { Width = 4 });
-            }
-        }
     }
 
     private static void OnLevelsChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -62,13 +40,32 @@ public partial class WaveformControl : UserControl
     {
         if (levels == null || levels.Length < 5) return;
 
+        var points = new Point[5];
         for (var i = 0; i < 5; i++)
         {
-            var targetHeight = Math.Max(4, levels[i] * 28 * _weights[i]);
-
-            _smoothedLevels[i] = _smoothedLevels[i] * 0.6f + targetHeight * 0.4f;
-
-            _bars[i].Height = _smoothedLevels[i];
+            var targetHeight = levels[i] * 22 * _weights[i];
+            _smoothedLevels[i] = _smoothedLevels[i] * 0.7f + targetHeight * 0.3f;
+            
+            // Adjust vertical center to be at Grid center
+            points[i] = new Point(i * WidthPerPoint, 16 - _smoothedLevels[i]);
         }
+
+        // Draw Liquid Curve
+        var figure = new PathFigure { StartPoint = new Point(0, 16), IsClosed = false };
+        
+        // Add Quadratic Bezier segments for smoothness
+        for (int i = 0; i < 4; i++)
+        {
+            var p1 = points[i];
+            var p2 = points[i + 1];
+            var mid = new Point((p1.X + p2.X) / 2, (p1.Y + p2.Y) / 2);
+            
+            figure.Segments.Add(new QuadraticBezierSegment(p1, mid, true));
+        }
+        figure.Segments.Add(new LineSegment(new Point(40, 16), true));
+
+        var geometry = new PathGeometry();
+        geometry.Figures.Add(figure);
+        WavePath.Data = geometry;
     }
 }

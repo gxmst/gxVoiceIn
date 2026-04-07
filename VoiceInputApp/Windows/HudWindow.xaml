@@ -16,18 +16,12 @@
 
     <Window.Resources>
         <Style x:Key="HudContainer" TargetType="Border">
-            <Setter Property="Background">
-                <Setter.Value>
-                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                        <GradientStop Color="#F72A2E37" Offset="0"/>
-                        <GradientStop Color="#F022262E" Offset="1"/>
-                    </LinearGradientBrush>
-                </Setter.Value>
-            </Setter>
-            <Setter Property="CornerRadius" Value="28"/>
-            <Setter Property="Padding" Value="15,10"/>
-            <Setter Property="BorderBrush" Value="#22FFFFFF"/>
+            <Setter Property="Background" Value="#A51A1C1E"/> <!-- Semi-transparent dark -->
+            <Setter Property="CornerRadius" Value="14"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="BorderBrush" Value="#2AFFFFFF"/> <!-- Glass highlight -->
             <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
         </Style>
     </Window.Resources>
 
@@ -38,14 +32,15 @@
                 RenderTransformOrigin="0.5,0.5">
             <Border.RenderTransform>
                 <TransformGroup>
-                    <ScaleTransform x:Name="HudScaleTransform" ScaleX="0.985" ScaleY="0.985"/>
-                    <TranslateTransform x:Name="HudTranslateTransform" Y="22"/>
+                    <ScaleTransform x:Name="HudScaleTransform" ScaleX="1" ScaleY="1"/>
+                    <TranslateTransform x:Name="HudTranslateTransform" Y="0"/>
                 </TransformGroup>
             </Border.RenderTransform>
             <Border.Effect>
-                <DropShadowEffect BlurRadius="18"
-                                  ShadowDepth="6"
-                                  Opacity="0.18"
+                <DropShadowEffect BlurRadius="32"
+                                  ShadowDepth="8"
+                                  Opacity="0.32"
+                                  Direction="270"
                                   Color="#000000"/>
             </Border.Effect>
 
