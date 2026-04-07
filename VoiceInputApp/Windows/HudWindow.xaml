@@ -29,6 +29,8 @@
         <Border x:Name="HudShell"
                 Style="{StaticResource HudContainer}"
                 HorizontalAlignment="Center"
+                MinWidth="380"
+                MaxWidth="600"
                 RenderTransformOrigin="0.5,0.5">
             <Border.RenderTransform>
                 <TransformGroup>

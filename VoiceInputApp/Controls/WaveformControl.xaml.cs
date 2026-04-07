@@ -43,8 +43,8 @@ public partial class WaveformControl : UserControl
         var points = new Point[5];
         for (var i = 0; i < 5; i++)
         {
-            var targetHeight = levels[i] * 22 * _weights[i];
-            _smoothedLevels[i] = _smoothedLevels[i] * 0.7f + targetHeight * 0.3f;
+            var targetHeight = levels[i] * 38 * _weights[i];
+            _smoothedLevels[i] = _smoothedLevels[i] * 0.4f + targetHeight * 0.6f;
             
             // Adjust vertical center to be at Grid center
             points[i] = new Point(i * WidthPerPoint, 16 - _smoothedLevels[i]);

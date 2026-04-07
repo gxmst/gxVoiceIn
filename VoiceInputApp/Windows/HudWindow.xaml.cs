@@ -4,6 +4,7 @@ using System.Windows.Media.Animation;
 using System.Windows.Media;
 using System.Windows.Interop;
 using VoiceInputApp.ViewModels;
+using VoiceInputApp.Models;
 
 namespace VoiceInputApp.Windows;
 
@@ -11,6 +12,8 @@ public partial class HudWindow : Window
 {
     private readonly HudViewModel _viewModel;
     private bool _hasShown;
+    private double _lastWidth;
+    private readonly System.Windows.Threading.DispatcherTimer _widthTimer;
 
     public HudWindow(HudViewModel viewModel)
     {
@@ -19,6 +22,12 @@ public partial class HudWindow : Window
         DataContext = _viewModel;
         ShowActivated = false;
         Focusable = false;
+
+        _widthTimer = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(180)
+        };
+        _widthTimer.Tick += (s, e) => { _widthTimer.Stop(); CommitWidthAnimation(); };
 
         Loaded += OnLoaded;
         _viewModel.PropertyChanged += OnViewModelPropertyChanged;
@@ -29,29 +38,58 @@ public partial class HudWindow : Window
         if (e.PropertyName == nameof(HudViewModel.DisplayText))
         {
             Dispatcher.InvokeAsync(PlayTextUpdateAnimation);
-            Dispatcher.InvokeAsync(AnimateWidth);
+            RequestWidthUpdate();
+        }
+        else if (e.PropertyName == nameof(HudViewModel.State))
+        {
+            if (_viewModel.State == HudState.Success || _viewModel.State == HudState.Error)
+            {
+                // Instant final adjustment
+                _widthTimer.Stop();
+                CommitWidthAnimation(isFinal: true);
+            }
         }
     }
 
-    private void AnimateWidth()
+    private void RequestWidthUpdate()
     {
-        // Transition width smoothly
-        HudShell.UpdateLayout();
-        double targetWidth = HudShell.ActualWidth;
-        
-        // Temporarily reset to old width to animate from it
-        double oldWidth = _lastWidth > 0 ? _lastWidth : targetWidth;
-        
-        var widthAnim = new DoubleAnimation(oldWidth, targetWidth, TimeSpan.FromMilliseconds(200))
+        if (_viewModel.State != HudState.Listening)
         {
-            EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseInOut }
-        };
-        
-        HudShell.BeginAnimation(WidthProperty, widthAnim);
-        _lastWidth = targetWidth;
+            CommitWidthAnimation();
+            return;
+        }
+
+        if (!_widthTimer.IsEnabled)
+        {
+            _widthTimer.Start();
+        }
     }
 
-    private double _lastWidth;
+    private void CommitWidthAnimation(bool isFinal = false)
+    {
+        // Measure target width
+        HudShell.BeginAnimation(WidthProperty, null);
+        HudShell.Width = double.NaN;
+        HudShell.UpdateLayout();
+        
+        double newTarget = HudShell.ActualWidth;
+        
+        // During listening, only allow expansion or very slow contraction to stop flickering
+        if (!isFinal && _viewModel.State == HudState.Listening && newTarget < _lastWidth)
+        {
+            newTarget = _lastWidth; // Keep it stable
+        }
+
+        if (Math.Abs(newTarget - _lastWidth) < 1.0 && !isFinal) return;
+
+        var anim = new DoubleAnimation(_lastWidth > 0 ? _lastWidth : newTarget, newTarget, TimeSpan.FromMilliseconds(isFinal ? 300 : 200))
+        {
+            EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+        };
+        
+        HudShell.BeginAnimation(WidthProperty, anim);
+        _lastWidth = newTarget;
+    }
 
     private void PlayTextUpdateAnimation()
     {
@@ -87,22 +125,11 @@ public partial class HudWindow : Window
         extendedStyle |= WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW;
         SetWindowLong(hwnd, GWL_EXSTYLE, extendedStyle);
 
-        // Enable Windows 11 Acrylic/Mica Backdrop
-        EnableBlur(hwnd);
+        // Removed Windows 11 Acrylic/Mica Backdrop due to Window visual artifacts
+        // EnableBlur(hwnd);
 
         ShowInTaskbar = false;
         Topmost = true;
-    }
-
-    private void EnableBlur(IntPtr hwnd)
-    {
-        // Set Dark Mode Attribute
-        int darkMode = 1;
-        DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, ref darkMode, sizeof(int));
-
-        // Set Backdrop Type (2 = Mica, 3 = Acrylic, 4 = Tabbed/Mica Alt)
-        int backdropType = 3; 
-        DwmSetWindowAttribute(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, ref backdropType, sizeof(int));
     }
 
     public void ShowHud()
@@ -166,10 +193,4 @@ public partial class HudWindow : Window
 
     [DllImport("user32.dll")]
     private static extern int SetWindowLong(IntPtr hwnd, int index, int newStyle);
-
-    [DllImport("dwmapi.dll")]
-    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
-
-    private const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
-    private const int DWMWA_SYSTEMBACKDROP_TYPE = 38;
 }
