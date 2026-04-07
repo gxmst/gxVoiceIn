@@ -12,5 +12,4 @@ public interface IHotkeyMonitor
     event EventHandler<HotkeyEventArgs>? KeyReleased;
     void Start();
     void Stop();
-    void SetRecordingStarted(bool started);
 }

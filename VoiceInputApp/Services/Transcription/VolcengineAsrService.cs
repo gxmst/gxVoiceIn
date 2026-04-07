@@ -416,7 +416,7 @@ public class VolcengineAsrService : ITranscriptionService
 
             if (string.IsNullOrWhiteSpace(response?.Result?.Text))
             {
-                _logger.Warning($"[{_currentSessionId}] Empty or null text in response");
+                _logger.Debug($"[{_currentSessionId}] Empty or null text in response");
                 return;
             }
 

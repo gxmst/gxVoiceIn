@@ -20,7 +20,6 @@ public class HotkeyMonitor : IHotkeyMonitor
     private readonly HookProc _hookProc;
     private bool _isRunning;
     private bool _rightShiftPressed;
-    private bool _recordingStarted;
 
     public event EventHandler<HotkeyEventArgs>? KeyPressed;
     public event EventHandler<HotkeyEventArgs>? KeyReleased;
@@ -86,7 +85,6 @@ public class HotkeyMonitor : IHotkeyMonitor
         _hookId = SetWindowsHookEx(WH_KEYBOARD_LL, _hookProc, GetModuleHandle(null), 0);
         _isRunning = true;
         _rightShiftPressed = false;
-        _recordingStarted = false;
     }
 
     public void Stop()
@@ -100,12 +98,6 @@ public class HotkeyMonitor : IHotkeyMonitor
         }
         _isRunning = false;
         _rightShiftPressed = false;
-        _recordingStarted = false;
-    }
-
-    public void SetRecordingStarted(bool started)
-    {
-        _recordingStarted = started;
     }
 
     private IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
@@ -121,16 +113,12 @@ public class HotkeyMonitor : IHotkeyMonitor
                 if (isKeyDown && !_rightShiftPressed)
                 {
                     _rightShiftPressed = true;
-                    _recordingStarted = false;
                     KeyPressed?.Invoke(this, new HotkeyEventArgs { IsRightShift = true, IsKeyDown = true });
                 }
                 else if (isKeyUp && _rightShiftPressed)
                 {
                     _rightShiftPressed = false;
-                    if (_recordingStarted)
-                    {
-                        KeyReleased?.Invoke(this, new HotkeyEventArgs { IsRightShift = true, IsKeyDown = false });
-                    }
+                    KeyReleased?.Invoke(this, new HotkeyEventArgs { IsRightShift = true, IsKeyDown = false });
                 }
             }
         }

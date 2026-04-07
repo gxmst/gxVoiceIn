@@ -89,21 +89,20 @@ Tray/
 
 ```
 Hotkey/
-├── IHotkeyMonitor.cs         # 接口定义
-├── LowLevelKeyboardHook.cs   # Win32 键盘钩子封装
-├── HotkeyMonitor.cs          # Right Shift 监听实现
-└── HotkeyEventArgs.cs        # 按键事件参数
+├── IHotkeyMonitor.cs    # 接口定义
+├── HotkeyMonitor.cs     # Right Shift 监听实现（含粘滞键/筛选键/切换键禁用）
+└── HotkeyEventArgs.cs   # 按键事件参数
 ```
 
 **关键类**：
-- `IHotkeyMonitor` - 热键监听接口
-- `LowLevelKeyboardHook` - P/Invoke 封装 `SetWindowsHookEx`
-- `HotkeyMonitor` - 区分左/右 Shift，触发按下/松开事件
+- `IHotkeyMonitor` - 热键监听接口（KeyPressed / KeyReleased 始终触发，由 Orchestrator 状态机处理）
+- `HotkeyMonitor` - 全局键盘钩子（WH_KEYBOARD_LL），区分左/右 Shift，构造函数内禁用 StickyKeys / FilterKeys / ToggleKeys
 
 **Win32 API**：
 - `SetWindowsHookEx(WH_KEYBOARD_LL, ...)`
 - `CallNextHookEx`
 - `UnhookWindowsHookEx`
+- `SystemParametersInfo` - 辅助功能热键禁用
 
 ### 4. Audio Capture
 

@@ -217,7 +217,6 @@ public class VoiceInputOrchestrator : IDisposable
                 _recognitionCts.Token);
 
             _audioCaptureService.StartCapture();
-            _hotkeyMonitor.SetRecordingStarted(true);
 
             lock (_stateLock)
             {
@@ -257,8 +256,6 @@ public class VoiceInputOrchestrator : IDisposable
             _state = VoiceInputState.Stopping;
             sessionId = _sessionId;
         }
-
-        _hotkeyMonitor.SetRecordingStarted(false);
 
         try
         {
@@ -422,13 +419,27 @@ public class VoiceInputOrchestrator : IDisposable
 
     private async Task SendAudioAsync(byte[] data, string sessionId)
     {
+        CancellationToken token;
+        lock (_stateLock)
+        {
+            if (_state != VoiceInputState.Recording && _state != VoiceInputState.Stopping)
+            {
+                return;
+            }
+            token = _recognitionCts?.Token ?? CancellationToken.None;
+        }
+
         try
         {
-            await _transcriptionService.SendAudioDataAsync(data, _recognitionCts?.Token ?? CancellationToken.None);
+            await _transcriptionService.SendAudioDataAsync(data, token);
         }
         catch (OperationCanceledException)
         {
             _logger.Debug($"[{sessionId}] Audio send cancelled");
+        }
+        catch (ObjectDisposedException)
+        {
+            _logger.Debug($"[{sessionId}] Audio send skipped, session already disposed");
         }
         catch (Exception ex)
         {
@@ -494,7 +505,6 @@ public class VoiceInputOrchestrator : IDisposable
     {
         try
         {
-            _hotkeyMonitor.SetRecordingStarted(false);
             if (_audioCaptureService.IsCapturing)
             {
                 _audioCaptureService.StopCapture();
@@ -638,8 +648,6 @@ public class VoiceInputOrchestrator : IDisposable
         try
         {
             _logger.Info($"[{sessionId}] Executing auto-stop due to: {reason}");
-
-            _hotkeyMonitor.SetRecordingStarted(false);
 
             lock (_stateLock)
             {
