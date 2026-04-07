@@ -14,6 +14,13 @@ namespace VoiceInputApp.Services;
 public class VoiceInputOrchestrator : IDisposable
 {
     private const int PostReleaseAudioTailMs = 200;
+    private const float SilenceAutoStopThreshold = 0.035f;
+    private static readonly TimeSpan AutoStopSilenceWindow = TimeSpan.FromMilliseconds(800);
+    private static readonly TimeSpan AutoStopStableResultWindow = TimeSpan.FromMilliseconds(600);
+    private static readonly TimeSpan AutoStopMinimumSessionAge = TimeSpan.FromMilliseconds(800);
+    private static readonly TimeSpan AutoStopPollInterval = TimeSpan.FromMilliseconds(150);
+    private static readonly TimeSpan AutoStopNoTextGrowthWindow = TimeSpan.FromMilliseconds(1200);
+    private static readonly TimeSpan AutoStopMaxSessionAge = TimeSpan.FromMilliseconds(15000);
 
     private enum VoiceInputState
     {
@@ -34,6 +41,7 @@ public class VoiceInputOrchestrator : IDisposable
     private readonly ILoggingService _logger = LoggingService.Instance;
     private readonly HudManager _hudManager;
     private readonly object _stateLock = new();
+    private readonly SemaphoreSlim _startStopSemaphore = new(1, 1);
     private readonly Queue<string> _recentCommittedTexts = new();
 
     private CancellationTokenSource? _recognitionCts;
@@ -43,6 +51,11 @@ public class VoiceInputOrchestrator : IDisposable
     private string? _sessionId;
     private VoiceInputState _state = VoiceInputState.Idle;
     private HudInstance? _currentHud;
+    private DateTimeOffset _lastAudioActivityAt = DateTimeOffset.MinValue;
+    private DateTimeOffset _lastFinalResultAt = DateTimeOffset.MinValue;
+    private DateTimeOffset _lastFinalTextLengthChangeAt = DateTimeOffset.MinValue;
+    private string _latestFinalSnapshot = string.Empty;
+    private CancellationTokenSource? _autoStopMonitorCts;
 
     public VoiceInputOrchestrator(
         IHotkeyMonitor hotkeyMonitor,
@@ -84,16 +97,60 @@ public class VoiceInputOrchestrator : IDisposable
 
     private void OnKeyPressed(object? sender, HotkeyEventArgs e)
     {
-        _ = StartRecordingAsync();
+        _ = StartRecordingAsyncProtected();
     }
 
     private void OnKeyReleased(object? sender, HotkeyEventArgs e)
     {
-        _ = StopRecordingAsync();
+        _ = StopRecordingAsyncProtected();
+    }
+
+    private async Task StartRecordingAsyncProtected()
+    {
+        if (!await _startStopSemaphore.WaitAsync(TimeSpan.FromMilliseconds(100)))
+        {
+            _logger.Debug("StartRecordingAsync: another start/stop operation in progress, ignoring");
+            return;
+        }
+
+        try
+        {
+            await StartRecordingAsync();
+        }
+        finally
+        {
+            _startStopSemaphore.Release();
+        }
+    }
+
+    private async Task StopRecordingAsyncProtected()
+    {
+        if (!await _startStopSemaphore.WaitAsync(TimeSpan.FromMilliseconds(100)))
+        {
+            _logger.Debug("StopRecordingAsync: another start/stop operation in progress, ignoring");
+            return;
+        }
+
+        try
+        {
+            await StopRecordingAsync();
+        }
+        finally
+        {
+            _startStopSemaphore.Release();
+        }
     }
 
     private void OnAudioLevelUpdated(object? sender, AudioLevelEventArgs e)
     {
+        if (e.Level >= SilenceAutoStopThreshold)
+        {
+            lock (_stateLock)
+            {
+                _lastAudioActivityAt = DateTimeOffset.UtcNow;
+            }
+        }
+
         _currentHud?.UpdateAudioLevel(e.Level);
     }
 
@@ -129,6 +186,10 @@ public class VoiceInputOrchestrator : IDisposable
             _finalText = string.Empty;
             _sessionId = Guid.NewGuid().ToString("N")[..8];
             _sessionStopwatch = Stopwatch.StartNew();
+            _lastAudioActivityAt = DateTimeOffset.UtcNow;
+            _lastFinalResultAt = DateTimeOffset.MinValue;
+            _lastFinalTextLengthChangeAt = DateTimeOffset.UtcNow;
+            _latestFinalSnapshot = string.Empty;
             sessionId = _sessionId;
         }
 
@@ -171,6 +232,7 @@ public class VoiceInputOrchestrator : IDisposable
             Log(sessionId, "Recording started");
             Log(sessionId, $"Ready in {_sessionStopwatch?.ElapsedMilliseconds ?? 0}ms");
             _currentHud.UpdateState(HudState.Listening, "正在聆听...");
+            StartAutoStopMonitor(sessionId);
         }
         catch (Exception ex)
         {
@@ -278,7 +340,15 @@ public class VoiceInputOrchestrator : IDisposable
         {
             if (result.IsFinal)
             {
+                var now = DateTimeOffset.UtcNow;
+                var previousLength = _finalText.Length;
                 _finalText = result.Text;
+                _latestFinalSnapshot = result.Text;
+                _lastFinalResultAt = now;
+                if (result.Text.Length != previousLength)
+                {
+                    _lastFinalTextLengthChangeAt = now;
+                }
             }
             else
             {
@@ -376,12 +446,20 @@ public class VoiceInputOrchestrator : IDisposable
 
     private void ResetSession()
     {
+        _autoStopMonitorCts?.Cancel();
+        _autoStopMonitorCts?.Dispose();
+        _autoStopMonitorCts = null;
+
         lock (_stateLock)
         {
             _state = VoiceInputState.Idle;
             _partialText = string.Empty;
             _finalText = string.Empty;
             _sessionId = null;
+            _lastAudioActivityAt = DateTimeOffset.MinValue;
+            _lastFinalResultAt = DateTimeOffset.MinValue;
+            _lastFinalTextLengthChangeAt = DateTimeOffset.MinValue;
+            _latestFinalSnapshot = string.Empty;
         }
 
         _recognitionCts?.Dispose();
@@ -392,12 +470,20 @@ public class VoiceInputOrchestrator : IDisposable
 
     private void ReleaseSessionForNextRecording()
     {
+        _autoStopMonitorCts?.Cancel();
+        _autoStopMonitorCts?.Dispose();
+        _autoStopMonitorCts = null;
+
         lock (_stateLock)
         {
             _state = VoiceInputState.Idle;
             _partialText = string.Empty;
             _finalText = string.Empty;
             _sessionId = null;
+            _lastAudioActivityAt = DateTimeOffset.MinValue;
+            _lastFinalResultAt = DateTimeOffset.MinValue;
+            _lastFinalTextLengthChangeAt = DateTimeOffset.MinValue;
+            _latestFinalSnapshot = string.Empty;
         }
 
         _recognitionCts?.Dispose();
@@ -463,10 +549,152 @@ public class VoiceInputOrchestrator : IDisposable
         }
     }
 
+    private void StartAutoStopMonitor(string sessionId)
+    {
+        _autoStopMonitorCts?.Cancel();
+        _autoStopMonitorCts?.Dispose();
+        _autoStopMonitorCts = new CancellationTokenSource();
+        var cancellationToken = _autoStopMonitorCts.Token;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                while (!cancellationToken.IsCancellationRequested)
+                {
+                    await Task.Delay(AutoStopPollInterval, cancellationToken);
+
+                    bool shouldEvaluate;
+                    string? stableText;
+                    DateTimeOffset lastAudioActivityAt;
+                    DateTimeOffset lastFinalResultAt;
+                    DateTimeOffset lastFinalTextLengthChangeAt;
+                    int currentFinalTextLength;
+                    long sessionAgeMs;
+
+                    lock (_stateLock)
+                    {
+                        sessionAgeMs = _sessionStopwatch?.ElapsedMilliseconds ?? 0;
+                        shouldEvaluate =
+                            _state == VoiceInputState.Recording &&
+                            string.Equals(_sessionId, sessionId, StringComparison.Ordinal) &&
+                            !string.IsNullOrWhiteSpace(_latestFinalSnapshot);
+                        stableText = _latestFinalSnapshot;
+                        currentFinalTextLength = _finalText.Length;
+                        lastAudioActivityAt = _lastAudioActivityAt;
+                        lastFinalResultAt = _lastFinalResultAt;
+                        lastFinalTextLengthChangeAt = _lastFinalTextLengthChangeAt;
+                    }
+
+                    if (!shouldEvaluate)
+                    {
+                        continue;
+                    }
+
+                    var now = DateTimeOffset.UtcNow;
+                    var sessionAge = TimeSpan.FromMilliseconds(sessionAgeMs);
+                    var silenceDuration = now - lastAudioActivityAt;
+                    var stableResultDuration = now - lastFinalResultAt;
+                    var noTextGrowthDuration = now - lastFinalTextLengthChangeAt;
+
+                    if (sessionAge >= AutoStopMaxSessionAge)
+                    {
+                        _logger.Warning($"[{sessionId}] Auto-stopping: session exceeded maximum age ({sessionAge.TotalMilliseconds:F0}ms). StableText='{stableText}'");
+                        await ExecuteAutoStop(sessionId, stableText, "max session age");
+                        return;
+                    }
+
+                    if (sessionAge >= AutoStopMinimumSessionAge &&
+                        silenceDuration >= AutoStopSilenceWindow &&
+                        stableResultDuration >= AutoStopStableResultWindow)
+                    {
+                        _logger.Warning($"[{sessionId}] Auto-stopping: silence detected. StableText='{stableText}', silence={silenceDuration.TotalMilliseconds:F0}ms");
+                        await ExecuteAutoStop(sessionId, stableText, "silence");
+                        return;
+                    }
+
+                    if (sessionAge >= AutoStopMinimumSessionAge &&
+                        currentFinalTextLength > 0 &&
+                        noTextGrowthDuration >= AutoStopNoTextGrowthWindow)
+                    {
+                        _logger.Warning($"[{sessionId}] Auto-stopping: text stopped growing. StableText='{stableText}' (length={currentFinalTextLength}), noGrowth={noTextGrowthDuration.TotalMilliseconds:F0}ms");
+                        await ExecuteAutoStop(sessionId, stableText, "text no growth");
+                        return;
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning($"[{sessionId}] Auto-stop monitor failed: {ex.Message}");
+            }
+        }, cancellationToken);
+    }
+
+    private async Task ExecuteAutoStop(string sessionId, string? stableText, string reason)
+    {
+        try
+        {
+            _logger.Info($"[{sessionId}] Executing auto-stop due to: {reason}");
+
+            _hotkeyMonitor.SetRecordingStarted(false);
+
+            lock (_stateLock)
+            {
+                if (_state != VoiceInputState.Recording)
+                {
+                    _logger.Debug($"[{sessionId}] Auto-stop aborted, state is now {_state}");
+                    return;
+                }
+                _state = VoiceInputState.Stopping;
+            }
+
+            _audioCaptureService.StopCapture();
+
+            if (_recognitionCts is { IsCancellationRequested: false })
+            {
+                _recognitionCts.Cancel();
+            }
+
+            var textToProcess = GetBestTranscript();
+            Log(sessionId, $"Auto-stop result text: '{textToProcess}'");
+
+            HudInstance? hud;
+            lock (_stateLock)
+            {
+                hud = _currentHud;
+                _currentHud = null;
+            }
+
+            ReleaseSessionForNextRecording();
+
+            if (string.IsNullOrWhiteSpace(textToProcess))
+            {
+                _logger.Warning($"[{sessionId}] No text to process after auto-stop");
+                hud?.UpdateState(HudState.Error, "未识别到语音");
+                HideHudAfterDelay(hud, 800);
+                return;
+            }
+
+            hud?.UpdateState(HudState.Transcribing, textToProcess);
+            _ = ProcessResultAsync(textToProcess, sessionId, hud);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error($"[{sessionId}] Auto-stop failed: {ex.Message}", ex);
+            ResetSession();
+        }
+    }
+
     public void Dispose()
     {
+        _autoStopMonitorCts?.Cancel();
+        _autoStopMonitorCts?.Dispose();
         _recognitionCts?.Cancel();
         _recognitionCts?.Dispose();
+        _startStopSemaphore.Dispose();
         _hotkeyMonitor.Stop();
     }
 }

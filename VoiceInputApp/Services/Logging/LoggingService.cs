@@ -14,7 +14,7 @@ public interface ILoggingService
 
 public class LoggingService : ILoggingService
 {
-    private const long MaxLogFileBytes = 5 * 1024 * 1024;
+    private const long MaxLogFileBytes = 2 * 1024 * 1024;
     private const int RetentionDays = 7;
     private readonly string _logFilePath;
     private readonly string _logDirectory;

@@ -48,8 +48,33 @@ public class SettingsService : ISettingsService
         {
             var options = new JsonSerializerOptions { WriteIndented = true };
             var json = JsonSerializer.Serialize(settings, options);
-            File.WriteAllText(_settingsPath, json);
-            _current = settings;
+
+            var tempPath = _settingsPath + ".tmp";
+            var backupPath = _settingsPath + ".bak";
+
+            try
+            {
+                File.WriteAllText(tempPath, json);
+
+                if (File.Exists(_settingsPath))
+                {
+                    File.Replace(tempPath, _settingsPath, backupPath);
+                }
+                else
+                {
+                    File.Move(tempPath, _settingsPath);
+                }
+
+                _current = settings;
+            }
+            catch
+            {
+                if (File.Exists(tempPath))
+                {
+                    try { File.Delete(tempPath); } catch { }
+                }
+                throw;
+            }
         }
     }
 }

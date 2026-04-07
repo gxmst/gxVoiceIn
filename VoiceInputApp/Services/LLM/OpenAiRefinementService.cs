@@ -7,10 +7,10 @@ using VoiceInputApp.Services.Settings;
 
 namespace VoiceInputApp.Services.LLM;
 
-public class OpenAiRefinementService : ILlmRefinementService
+public class OpenAiRefinementService : ILlmRefinementService, IDisposable
 {
     private readonly ISettingsService _settingsService;
-    private readonly HttpClient _httpClient;
+    private static readonly HttpClient SharedHttpClient = new() { Timeout = TimeSpan.FromSeconds(30) };
 
     public bool IsConfigured =>
         !string.IsNullOrEmpty(_settingsService.Current.Llm.BaseUrl) &&
@@ -20,7 +20,6 @@ public class OpenAiRefinementService : ILlmRefinementService
     public OpenAiRefinementService(ISettingsService settingsService)
     {
         _settingsService = settingsService;
-        _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
     }
 
     public async Task<string> RefineAsync(string text, Language language)
@@ -44,11 +43,11 @@ public class OpenAiRefinementService : ILlmRefinementService
                 max_tokens = 1000
             };
 
-            _httpClient.DefaultRequestHeaders.Clear();
-            _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {settings.ApiKey}");
+            SharedHttpClient.DefaultRequestHeaders.Clear();
+            SharedHttpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {settings.ApiKey}");
 
             var url = settings.BaseUrl.TrimEnd('/') + "/chat/completions";
-            var response = await _httpClient.PostAsJsonAsync(url, requestBody);
+            var response = await SharedHttpClient.PostAsJsonAsync(url, requestBody);
 
             if (!response.IsSuccessStatusCode) return text;
 
@@ -61,6 +60,11 @@ public class OpenAiRefinementService : ILlmRefinementService
         {
             return text;
         }
+    }
+    public void Dispose()
+    {
+        // SharedHttpClient is static and lives for the app lifetime.
+        // We don't dispose it to avoid disrupting in-flight requests.
     }
 }
 

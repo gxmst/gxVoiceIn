@@ -521,20 +521,40 @@ public class VolcengineAsrService : ITranscriptionService
 
     private async Task DisposeWebSocketAsync()
     {
-        if (_receiveTask != null)
+        if (_webSocket != null)
         {
             try
             {
-                await _receiveTask;
+                if (_webSocket.State == WebSocketState.Open || _webSocket.State == WebSocketState.CloseReceived)
+                {
+                    using var closeCts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+                    await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Dispose", closeCts.Token);
+                }
             }
             catch
             {
             }
+            _webSocket.Dispose();
+            _webSocket = null;
         }
 
-        _webSocket?.Dispose();
-        _webSocket = null;
-        _receiveTask = null;
+        if (_receiveTask != null)
+        {
+            try
+            {
+                using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+                var waitTask = _receiveTask.WaitAsync(timeoutCts.Token);
+                await waitTask;
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.Debug("WebSocket receive task timed out during disposal");
+            }
+            catch
+            {
+            }
+            _receiveTask = null;
+        }
     }
 
     private static byte[] GenerateHeader(byte messageType, byte messageFlags, byte serialization, byte compression)

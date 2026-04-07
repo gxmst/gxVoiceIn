@@ -95,11 +95,16 @@ public class AudioCaptureService : IAudioCaptureService
 
     public void StopCapture()
     {
-        if (!_isCapturing || _waveIn == null) return;
+        if (!_isCapturing) return;
 
-        _logger.Info($"Stopping capture. Total bytes captured: {_totalBytesCaptured}");
-        _waveIn.StopRecording();
         _isCapturing = false;
+        var waveInToStop = Interlocked.Exchange(ref _waveIn, null);
+
+        if (waveInToStop != null)
+        {
+            _logger.Info($"Stopping capture. Total bytes captured: {_totalBytesCaptured}");
+            waveInToStop.StopRecording();
+        }
     }
 
     public float GetCurrentLevel()
@@ -129,7 +134,9 @@ public class AudioCaptureService : IAudioCaptureService
         {
             _logger.Error("Recording stopped with error", e.Exception);
         }
-        _waveIn?.Dispose();
-        _waveIn = null;
+
+        var waveInToDispose = Interlocked.Exchange(ref _waveIn, null);
+        waveInToDispose?.Dispose();
+        _isCapturing = false;
     }
 }

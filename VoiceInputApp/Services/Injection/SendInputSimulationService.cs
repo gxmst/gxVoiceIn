@@ -58,14 +58,6 @@ public class SendInputSimulationService : IInputSimulationService
             VkControl,
             VkLControl,
             VkRControl,
-            VkShift,
-            VkLShift,
-            VkRShift,
-            VkMenu,
-            VkLMenu,
-            VkRMenu,
-            VkLWin,
-            VkRWin
         };
 
         var inputs = modifierKeys

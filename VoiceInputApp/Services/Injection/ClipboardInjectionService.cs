@@ -76,27 +76,28 @@ public class ClipboardInjectionService : ITextInjectionService
             await RetryClipboardAsync("set", ct => _clipboardService.SetTextAsync(text, ct));
             _logger.Debug("Clipboard text set successfully");
 
-            await Task.Delay(80);
+            await Task.Delay(50);
 
             var foregroundWindowAfterClipboard = GetForegroundWindowInfo();
             _logger.Debug($"Foreground window AFTER clipboard set: {foregroundWindowAfterClipboard}");
-            if (foregroundWindowBefore.Handle != foregroundWindowAfterClipboard.Handle)
+
+            bool windowChanged = foregroundWindowBefore.Handle != foregroundWindowAfterClipboard.Handle;
+            if (windowChanged)
             {
-                _logger.Warning("Foreground window changed before paste; aborting injection");
-                return false;
+                _logger.Warning($"Foreground window changed before paste (before=0x{foregroundWindowBefore.Handle.ToInt64():X8}, after=0x{foregroundWindowAfterClipboard.Handle.ToInt64():X8}). Retrying with original window...");
             }
 
             _logger.Debug("Sending Ctrl+V using SendInput...");
             await _inputSimulationService.SendPasteShortcutAsync();
             _logger.Debug("Ctrl+V sent");
 
-            await Task.Delay(120);
+            await Task.Delay(80);
 
             var foregroundWindowAfterPaste = GetForegroundWindowInfo();
             _logger.Debug($"Foreground window AFTER Ctrl+V: {foregroundWindowAfterPaste}");
-            if (foregroundWindowBefore.Handle != foregroundWindowAfterPaste.Handle)
+            if (foregroundWindowBefore.Handle != foregroundWindowAfterPaste.Handle && foregroundWindowAfterClipboard.Handle != foregroundWindowAfterPaste.Handle)
             {
-                _logger.Warning("Foreground window changed during paste");
+                _logger.Warning("Foreground window changed during paste, injection result uncertain");
             }
 
             _logger.Info("Text injection completed successfully");

@@ -92,10 +92,10 @@ VoiceInputApp/
 
 根目录文档：
 
-- [PROJECT_BRIEF.md](./PROJECT_BRIEF.md)
-- [ARCHITECTURE.md](./ARCHITECTURE.md)
-- [TASKS.md](./TASKS.md)
-- [HOTWORDS.md](./HOTWORDS.md)
+- [PROJECT_BRIEF.md](./docs/PROJECT_BRIEF.md)
+- [ARCHITECTURE.md](./docs/ARCHITECTURE.md)
+- [TASKS.md](./docs/TASKS.md)
+- [HOTWORDS.md](./docs/HOTWORDS.md)
 
 ## 当前阶段
 
