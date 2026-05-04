@@ -1,4 +1,4 @@
-namespace VoiceInputApp.Models;
+﻿﻿namespace VoiceInputApp.Models;
 
 public enum HudState
 {
@@ -6,6 +6,10 @@ public enum HudState
     Listening,
     Transcribing,
     Refining,
+    Thinking,
+    Synthesizing,
+    Speaking,
+    Interrupted,
     Success,
     Error
 }

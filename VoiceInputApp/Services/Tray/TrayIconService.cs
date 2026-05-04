@@ -18,6 +18,9 @@ public class TrayIconService : ITrayIconService, IDisposable
     private readonly Action<Language>? _onLanguageChanged;
     private readonly Action<bool>? _onLlmEnabledChanged;
     private readonly Action<bool>? _onAutoStartChanged;
+    private readonly Action<InteractionMode>? _onSetMode;
+    private readonly Action? _onStopPlayback;
+    private readonly Action? _onClearConversation;
 
     public TrayIconService(
         ISettingsService settingsService,
@@ -28,7 +31,10 @@ public class TrayIconService : ITrayIconService, IDisposable
         Action? onLlmSettings = null,
         Action<Language>? onLanguageChanged = null,
         Action<bool>? onLlmEnabledChanged = null,
-        Action<bool>? onAutoStartChanged = null)
+        Action<bool>? onAutoStartChanged = null,
+        Action<InteractionMode>? onSetMode = null,
+        Action? onStopPlayback = null,
+        Action? onClearConversation = null)
     {
         _settingsService = settingsService;
         _autoStartService = autoStartService;
@@ -39,6 +45,9 @@ public class TrayIconService : ITrayIconService, IDisposable
         _onLanguageChanged = onLanguageChanged;
         _onLlmEnabledChanged = onLlmEnabledChanged;
         _onAutoStartChanged = onAutoStartChanged;
+        _onSetMode = onSetMode;
+        _onStopPlayback = onStopPlayback;
+        _onClearConversation = onClearConversation;
     }
 
     public void Initialize()
@@ -82,6 +91,34 @@ public class TrayIconService : ITrayIconService, IDisposable
         var settings = _settingsService.Current;
         var menu = new ContextMenuStrip();
 
+        var modeItem = new ToolStripMenuItem("交互模式");
+        foreach (InteractionMode mode in Enum.GetValues(typeof(InteractionMode)))
+        {
+            var modeName = mode switch
+            {
+                InteractionMode.Input => "输入模式",
+                InteractionMode.Conversation => "对话模式",
+                InteractionMode.Hybrid => "混合模式",
+                _ => mode.ToString()
+            };
+            var item = new ToolStripMenuItem(modeName)
+            {
+                Checked = settings.Mode == mode,
+                Tag = mode
+            };
+            item.Click += (s, e) =>
+            {
+                if (s is ToolStripMenuItem menuItem && menuItem.Tag is InteractionMode selectedMode)
+                {
+                    _onSetMode?.Invoke(selectedMode);
+                }
+            };
+            modeItem.DropDownItems.Add(item);
+        }
+        menu.Items.Add(modeItem);
+
+        menu.Items.Add(new ToolStripSeparator());
+
         var languageItem = new ToolStripMenuItem("语言");
         foreach (Language lang in Enum.GetValues(typeof(Language)))
         {
@@ -109,6 +146,16 @@ public class TrayIconService : ITrayIconService, IDisposable
         var dashboardItem = new ToolStripMenuItem("控制台");
         dashboardItem.Click += (s, e) => _onOpenDashboard?.Invoke();
         menu.Items.Add(dashboardItem);
+
+        var stopPlaybackItem = new ToolStripMenuItem("停止播放");
+        stopPlaybackItem.Click += (s, e) => _onStopPlayback?.Invoke();
+        menu.Items.Add(stopPlaybackItem);
+
+        var clearConversationItem = new ToolStripMenuItem("清空会话");
+        clearConversationItem.Click += (s, e) => _onClearConversation?.Invoke();
+        menu.Items.Add(clearConversationItem);
+
+        menu.Items.Add(new ToolStripSeparator());
 
         var autoStartItem = new ToolStripMenuItem("开机自启")
         {

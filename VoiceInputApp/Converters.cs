@@ -54,6 +54,10 @@ public class HudStateToBrushConverter : IValueConverter
             HudState.Listening => new SolidColorBrush(Color.FromRgb(67, 233, 123)),
             HudState.Transcribing => new SolidColorBrush(Color.FromRgb(77, 171, 247)),
             HudState.Refining => new SolidColorBrush(Color.FromRgb(255, 184, 77)),
+            HudState.Thinking => new SolidColorBrush(Color.FromRgb(167, 139, 250)),
+            HudState.Synthesizing => new SolidColorBrush(Color.FromRgb(251, 146, 60)),
+            HudState.Speaking => new SolidColorBrush(Color.FromRgb(96, 165, 250)),
+            HudState.Interrupted => new SolidColorBrush(Color.FromRgb(251, 191, 36)),
             HudState.Success => new SolidColorBrush(Color.FromRgb(56, 217, 169)),
             HudState.Error => new SolidColorBrush(Color.FromRgb(255, 107, 107)),
             _ => new SolidColorBrush(Color.FromRgb(108, 117, 125))

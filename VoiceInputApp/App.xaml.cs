@@ -2,6 +2,7 @@ using System.Windows;
 using VoiceInputApp.Models;
 using VoiceInputApp.Services;
 using VoiceInputApp.Services.Audio;
+using VoiceInputApp.Services.Conversation;
 using VoiceInputApp.Services.Hotkey;
 using VoiceInputApp.Services.Injection;
 using VoiceInputApp.Services.LLM;
@@ -11,6 +12,7 @@ using VoiceInputApp.Services.Settings;
 using VoiceInputApp.Services.Startup;
 using VoiceInputApp.Services.Tray;
 using VoiceInputApp.Services.Transcription;
+using VoiceInputApp.Services.Tts;
 using VoiceInputApp.ViewModels;
 using VoiceInputApp.Windows;
 
@@ -31,6 +33,10 @@ public partial class App : Application
     private HudManager? _hudManager;
     private ControlCenterWindow? _controlCenterWindow;
     private IAutoStartService? _autoStartService;
+    private IConversationService? _conversationService;
+    private IConversationSessionStore? _conversationSessionStore;
+    private ITtsService? _ttsService;
+    private IAudioPlaybackService? _audioPlaybackService;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -43,7 +49,7 @@ public partial class App : Application
     private void InitializeServices()
     {
         _logger.Info("Initializing services");
-        
+
         _settingsService = new SettingsService();
         _autoStartService = new AutoStartService();
         _hotkeyMonitor = new HotkeyMonitor(_settingsService.Current.TriggerKey);
@@ -52,6 +58,11 @@ public partial class App : Application
         _textInjectionService = new ClipboardInjectionService();
         _llmRefinementService = new OpenAiRefinementService(_settingsService);
         _hudManager = new HudManager();
+
+        _conversationService = new OpenAiConversationService(_settingsService);
+        _conversationSessionStore = new ConversationSessionStore(_settingsService);
+        _ttsService = new OpenAiTtsService(_settingsService);
+        _audioPlaybackService = new AudioPlaybackService();
 
         _trayIconService = new TrayIconService(
             _settingsService,
@@ -62,7 +73,10 @@ public partial class App : Application
             onLlmSettings: ShowLlmSettings,
             onLanguageChanged: OnLanguageChanged,
             onLlmEnabledChanged: OnLlmEnabledChanged,
-            onAutoStartChanged: OnAutoStartChanged);
+            onAutoStartChanged: OnAutoStartChanged,
+            onSetMode: OnSetMode,
+            onStopPlayback: OnStopPlayback,
+            onClearConversation: OnClearConversation);
 
         _trayIconService.Initialize();
         _notificationService = new TrayNotificationService(_trayIconService.GetNotifyIcon());
@@ -76,7 +90,11 @@ public partial class App : Application
             _settingsService,
             _notificationService,
             new LoggerWrapper(_logger),
-            _hudManager);
+            _hudManager,
+            _conversationService,
+            _conversationSessionStore,
+            _ttsService,
+            _audioPlaybackService);
     }
 
     private void StartApplication()
@@ -115,6 +133,8 @@ public partial class App : Application
                 _settingsService!,
                 _logger,
                 _autoStartService!,
+                _conversationSessionStore!,
+                _orchestrator!,
                 ShowAsrSettings,
                 ShowLlmSettings,
                 QuitApplication);
@@ -146,6 +166,25 @@ public partial class App : Application
     private void OnAutoStartChanged(bool enabled)
     {
         _logger.Info($"Auto start enabled: {enabled}");
+        _controlCenterWindow?.RefreshContent();
+    }
+
+    private void OnSetMode(InteractionMode mode)
+    {
+        _orchestrator?.SetMode(mode);
+        _trayIconService?.UpdateMenu();
+        _controlCenterWindow?.RefreshContent();
+    }
+
+    private void OnStopPlayback()
+    {
+        _orchestrator?.StopPlayback();
+        _controlCenterWindow?.RefreshContent();
+    }
+
+    private void OnClearConversation()
+    {
+        _orchestrator?.ClearConversationHistory();
         _controlCenterWindow?.RefreshContent();
     }
 

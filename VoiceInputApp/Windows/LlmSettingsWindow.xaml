@@ -1,37 +1,74 @@
 <Window x:Class="VoiceInputApp.Windows.LlmSettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="LLM Refinement 设置"
-        Width="450"
-        Height="320"
+        Title="LLM / 对话 / TTS 设置"
+        Width="520"
+        Height="580"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize">
-    <DockPanel Margin="20">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <DockPanel Margin="20">
 
-        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
-            <TextBlock Text="API Base URL:" Margin="0,0,0,5"/>
-            <TextBox x:Name="BaseUrlBox" Text="{Binding BaseUrl, UpdateSourceTrigger=PropertyChanged}" Padding="5"/>
-        </StackPanel>
+            <TextBlock DockPanel.Dock="Top" Text="基础 LLM 配置（纠错 / 对话共用）" FontWeight="Bold" FontSize="14" Margin="0,0,0,10"/>
 
-        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
-            <TextBlock Text="API Key:" Margin="0,0,0,5"/>
-            <PasswordBox x:Name="ApiKeyBox" Padding="5" PasswordChanged="ApiKeyBox_PasswordChanged"/>
-        </StackPanel>
+            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                <TextBlock Text="API Base URL:" Margin="0,0,0,4"/>
+                <TextBox x:Name="BaseUrlBox" Text="{Binding BaseUrl, UpdateSourceTrigger=PropertyChanged}" Padding="5"/>
+            </StackPanel>
 
-        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
-            <TextBlock Text="Model:" Margin="0,0,0,5"/>
-            <TextBox x:Name="ModelBox" Text="{Binding Model, UpdateSourceTrigger=PropertyChanged}" Padding="5"/>
-        </StackPanel>
+            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                <TextBlock Text="API Key:" Margin="0,0,0,4"/>
+                <PasswordBox x:Name="ApiKeyBox" Padding="5" PasswordChanged="ApiKeyBox_PasswordChanged"/>
+            </StackPanel>
 
-        <TextBlock DockPanel.Dock="Top" Text="{Binding StatusMessage}" Foreground="Gray" Margin="0,0,0,10"/>
+            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                <TextBlock Text="默认模型 (Model):" Margin="0,0,0,4"/>
+                <TextBox x:Name="ModelBox" Text="{Binding Model, UpdateSourceTrigger=PropertyChanged}" Padding="5"/>
+            </StackPanel>
 
-        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
-            <Button Content="Test" Command="{Binding TestCommand}" Width="70" Margin="0,0,10,0" Padding="5"
-                    IsEnabled="{Binding IsTesting, Converter={StaticResource InverseBooleanConverter}}"/>
-            <Button Content="Save" Command="{Binding SaveCommand}" Width="70" Margin="0,0,10,0" Padding="5"/>
-            <Button Content="Cancel" Command="{Binding CancelCommand}" Width="70" Padding="5"/>
-        </StackPanel>
+            <Separator DockPanel.Dock="Top" Margin="0,8,0,8"/>
 
-        <Border DockPanel.Dock="Top"/>
-    </DockPanel>
+            <TextBlock DockPanel.Dock="Top" Text="对话模型配置" FontWeight="Bold" FontSize="14" Margin="0,0,0,10"/>
+
+            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                <TextBlock Text="对话模型 (ConversationModel):" Margin="0,0,0,4"/>
+                <TextBox x:Name="ConversationModelBox" Text="{Binding ConversationModel, UpdateSourceTrigger=PropertyChanged}" Padding="5"/>
+                <TextBlock Text="留空则使用默认模型" Foreground="Gray" FontSize="11" Margin="0,2,0,0"/>
+            </StackPanel>
+
+            <CheckBox DockPanel.Dock="Top" x:Name="UseModelNativeAudioCheck" IsChecked="{Binding UseModelNativeAudio}" Content="使用模型原生音频输出（如 GPT-4o Audio）" Margin="0,0,0,8"/>
+
+            <Separator DockPanel.Dock="Top" Margin="0,8,0,8"/>
+
+            <TextBlock DockPanel.Dock="Top" Text="TTS 配置" FontWeight="Bold" FontSize="14" Margin="0,0,0,10"/>
+
+            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                <TextBlock Text="TTS 模型 (TtsModel):" Margin="0,0,0,4"/>
+                <TextBox x:Name="TtsModelBox" Text="{Binding TtsModel, UpdateSourceTrigger=PropertyChanged}" Padding="5"/>
+            </StackPanel>
+
+            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                <TextBlock Text="TTS 音色 (TtsVoice):" Margin="0,0,0,4"/>
+                <ComboBox x:Name="TtsVoiceCombo" IsEditable="True" Text="{Binding TtsVoice, UpdateSourceTrigger=PropertyChanged}" Padding="5">
+                    <ComboBoxItem Content="alloy"/>
+                    <ComboBoxItem Content="echo"/>
+                    <ComboBoxItem Content="fable"/>
+                    <ComboBoxItem Content="onyx"/>
+                    <ComboBoxItem Content="nova"/>
+                    <ComboBoxItem Content="shimmer"/>
+                </ComboBox>
+            </StackPanel>
+
+            <TextBlock DockPanel.Dock="Top" Text="{Binding StatusMessage}" Foreground="Gray" Margin="0,4,0,10" TextWrapping="Wrap"/>
+
+            <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+                <Button Content="测试连接" Command="{Binding TestCommand}" Width="80" Margin="0,0,10,0" Padding="5"
+                        IsEnabled="{Binding IsTesting, Converter={StaticResource InverseBooleanConverter}}"/>
+                <Button Content="保存" Command="{Binding SaveCommand}" Width="70" Margin="0,0,10,0" Padding="5"/>
+                <Button Content="取消" Command="{Binding CancelCommand}" Width="70" Padding="5"/>
+            </StackPanel>
+
+            <Border DockPanel.Dock="Top"/>
+        </DockPanel>
+    </ScrollViewer>
 </Window>
